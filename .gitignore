@@ -1,0 +1,23 @@
+# Dependencies
+/vendor/
+
+# Composer files
+composer.lock
+
+# PHPUnit
+.phpunit.cache/
+coverage/
+
+# Downloaded rules (cached locally)
+build/data.min.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

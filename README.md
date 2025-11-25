@@ -1,0 +1,406 @@
+# ClearUrls PHP
+
+High-performance PHP library for removing tracking parameters from URLs using the [ClearURLs](https://github.com/ClearURLs/Addon) ruleset.
+
+## Features
+
+- 🚀 **Fast** - Optimized for bulk URL cleaning with pre-compiled regex patterns
+- 🎯 **Zero Dependencies** - Pure PHP 8.3+ standard library only
+- 🔄 **Auto-updating Rules** - Fetches latest rules from ClearURLs project
+- 🧪 **Well Tested** - Comprehensive test suite with performance benchmarks
+- 💪 **Production Ready** - Battle-tested rules from the ClearURLs community
+- 📦 **Easy Integration** - Simple, one-function API
+
+## Installation
+
+### Requirements
+
+- PHP 8.3 or higher
+- Composer
+
+### Using Composer
+
+```bash
+composer require klkvsk/clearurls
+```
+
+The package includes pre-compiled rules (src/Rules.php), so it's ready to use immediately after installation.
+
+## Quick Start
+
+```php
+use ClearUrls\ClearUrls;
+
+// Create cleaner with default rules
+$cleaner = ClearUrls::createDefault();
+
+// Clean a URL
+$result = $cleaner->clean('https://example.com/page?utm_source=twitter&id=123');
+
+echo $result->url; // https://example.com/page?id=123
+echo $result->wasModified ? 'Modified' : 'Unchanged'; // Modified
+```
+
+## Usage Examples
+
+### Basic URL Cleaning
+
+```php
+$cleaner = ClearUrls::createDefault();
+
+// Remove UTM parameters
+$result = $cleaner->clean(
+    'https://example.com/page?utm_source=twitter&utm_medium=social&id=123'
+);
+echo $result->url; // https://example.com/page?id=123
+
+// Remove Facebook tracking
+$result = $cleaner->clean(
+    'https://example.com/page?fbclid=abc123&id=456'
+);
+echo $result->url; // https://example.com/page?id=456
+
+// Remove Google tracking
+$result = $cleaner->clean(
+    'https://www.google.com/search?q=test&ved=123&ei=456'
+);
+echo $result->url; // https://www.google.com/search?q=test
+```
+
+### Handling Redirections
+
+```php
+$cleaner = ClearUrls::createDefault();
+
+// Extract target URL from Google redirect
+$result = $cleaner->clean(
+    'https://www.google.com/url?q=https://example.com/target&ved=123'
+);
+echo $result->url; // https://example.com/target
+echo $result->wasRedirected ? 'Yes' : 'No'; // Yes
+
+// Extract target URL from Facebook redirect
+$result = $cleaner->clean(
+    'https://l.facebook.com/l.php?u=https%3A%2F%2Fexample.com%2Fpage&h=abc'
+);
+echo $result->url; // https://example.com/page
+```
+
+### Referral Marketing
+
+By default, referral marketing parameters (like Amazon affiliate tags) are removed. To keep them:
+
+```php
+$cleaner = ClearUrls::createDefault(allowReferralMarketing: true);
+
+$result = $cleaner->clean(
+    'https://www.amazon.com/dp/B08ABC123?tag=myaffiliate-20&ref=nav'
+);
+// With allowReferralMarketing=true: keeps 'tag' parameter
+// With allowReferralMarketing=false: removes 'tag' parameter
+```
+
+### Checking Result Status
+
+```php
+$result = $cleaner->clean($url);
+
+if ($result->wasModified) {
+    echo "Removed tracking parameters\n";
+}
+
+if ($result->wasRedirected) {
+    echo "Extracted target URL from redirect\n";
+}
+
+if ($result->wasBlocked) {
+    echo "URL was blocked (completeProvider rule)\n";
+}
+
+if ($result->hadAnyAction()) {
+    echo "Something was changed\n";
+}
+```
+
+### Batch Processing
+
+```php
+$cleaner = ClearUrls::createDefault();
+
+$urls = [
+    'https://example.com/page1?utm_source=email',
+    'https://example.com/page2?fbclid=abc123',
+    'https://example.com/page3?gclid=xyz789',
+];
+
+foreach ($urls as $url) {
+    $result = $cleaner->clean($url);
+    echo "{$url} -> {$result->url}\n";
+}
+```
+
+### Custom Configuration
+
+If you need custom rules, you can create providers manually:
+
+```php
+use ClearUrls\ClearUrls;
+use ClearUrls\Provider;
+
+$providers = [
+    new Provider(
+        name: 'custom',
+        urlPattern: '#^https?://example\.com#i',
+        completeProvider: false,
+        rules: [
+            '#^tracking$#i',
+            '#^session_id$#i',
+        ],
+        rawRules: [],
+        referralMarketing: [],
+        exceptions: [],
+        redirections: [],
+        forceRedirection: false
+    ),
+];
+
+$cleaner = new ClearUrls($providers);
+```
+
+## Performance
+
+The library is optimized for speed:
+
+- Pre-compiled regex patterns (no runtime compilation)
+- Efficient URL parsing and rebuilding
+- Minimal memory usage
+- Suitable for bulk URL cleaning operations
+
+Run performance benchmarks:
+
+```bash
+vendor/bin/phpunit tests/PerformanceTest.php --verbose
+```
+
+## Architecture
+
+### Core Components
+
+1. **ClearUrls.php** - Main cleaning logic
+   - URL parsing and validation
+   - Provider matching
+   - Rule application
+   - URL rebuilding
+
+2. **Provider.php** - Rule provider data structure
+   - Pattern matching
+   - Exception handling
+   - Redirection extraction
+
+3. **ClearUrlResult.php** - Immutable result object
+   - Cleaned URL
+   - Modification status
+   - Action flags
+
+4. **Rules.php** - Auto-generated (205 providers, 734+ rules)
+   - Pre-compiled regex patterns
+   - Optimized data structure
+   - Generated by build script
+
+### Build System (For Package Maintainers)
+
+**compile-rules.php** - Rules compilation script (used by package maintainers to update rules)
+- Fetches from https://rules2.clearurls.xyz/data.minify.json
+- Compiles all regex patterns
+- Generates optimized PHP code (src/Rules.php)
+- Caches rules locally for offline builds with `--local` flag
+
+## How It Works
+
+1. **Build Time** (package maintainers only): The build script fetches rules from ClearURLs and compiles them to PHP with pre-compiled regex patterns
+2. **Runtime** (end users): When cleaning a URL:
+   - Finds matching provider by URL pattern
+   - Checks exceptions (URLs that should not be processed)
+   - Handles redirections (extracts embedded URLs)
+   - Applies raw rules (regex on entire URL)
+   - Removes matching query parameters and fragments
+   - Rebuilds the clean URL
+
+## Rules Format
+
+Rules are fetched from the ClearURLs project. Each provider has:
+
+- `urlPattern`: Regex to match URLs
+- `completeProvider`: Block entire provider
+- `rules`: Query/fragment parameters to remove
+- `rawRules`: Regex patterns to apply to entire URL
+- `referralMarketing`: Optional marketing parameters
+- `exceptions`: URLs to skip
+- `redirections`: Extract embedded URLs
+- `forceRedirection`: Force redirect behavior
+
+See [ClearURLs documentation](https://docs.clearurls.xyz/latest/specs/rules/) for details.
+
+## Updating Rules (For Package Maintainers)
+
+The pre-compiled rules (src/Rules.php) are included in the package. End users don't need to update them.
+
+**For package maintainers**: To update rules to the latest version from ClearURLs:
+
+```bash
+php build/compile-rules.php
+```
+
+This fetches rules from https://rules2.clearurls.xyz/data.minify.json and regenerates src/Rules.php.
+
+Use the `--local` flag to skip fetching and compile from cached rules:
+
+```bash
+php build/compile-rules.php --local
+```
+
+## Project Structure
+
+```
+clearurls-php/
+├── src/
+│   ├── ClearUrls.php          # Main library class
+│   ├── Provider.php           # Provider data structure
+│   ├── ClearUrlResult.php     # Result object
+│   └── Rules.php              # Auto-generated rules
+├── build/
+│   ├── compile-rules.php      # Build script
+│   └── data.min.json          # Cached rules (git-ignored)
+├── tests/
+│   ├── ClearUrlsTest.php      # Unit tests
+│   └── PerformanceTest.php    # Benchmarks
+├── examples/
+│   ├── basic_usage.php        # Simple examples
+│   └── advanced_usage.php     # Advanced features
+├── composer.json
+├── phpunit.xml
+└── README.md
+```
+
+## Testing
+
+Install dev dependencies:
+
+```bash
+composer install --dev
+```
+
+Run tests:
+
+```bash
+# All tests
+vendor/bin/phpunit
+
+# Specific test file
+vendor/bin/phpunit tests/ClearUrlsTest.php
+
+# Performance benchmarks
+vendor/bin/phpunit tests/PerformanceTest.php --verbose
+```
+
+## Supported Providers (205 total)
+
+### Major Providers
+- Google (search, ads, redirects)
+- Amazon (products, search, ads)
+- Facebook (posts, redirects)
+- YouTube (videos, tracking)
+- Twitter/X (posts, tracking)
+- LinkedIn (profiles, tracking)
+- Reddit (posts, redirects)
+- Instagram (posts, tracking)
+- TikTok (videos, tracking)
+- And 196+ more...
+
+### Global Rules
+- UTM parameters (utm_source, utm_medium, etc.)
+- Facebook tracking (fbclid)
+- Google tracking (gclid, _ga)
+- And many more tracking parameters
+
+## API Reference
+
+### ClearUrls Class
+
+```php
+// Create with default rules
+$cleaner = ClearUrls::createDefault(bool $allowReferralMarketing = false): self
+
+// Create with custom providers
+$cleaner = new ClearUrls(array $providers, bool $allowReferralMarketing = false)
+
+// Clean a URL
+$result = $cleaner->clean(string $url): ClearUrlResult
+
+// Set referral marketing preference
+$cleaner->setAllowReferralMarketing(bool $allow): void
+```
+
+### ClearUrlResult Class
+
+```php
+readonly class ClearUrlResult {
+    public string $url;              // Cleaned URL
+    public bool $wasModified;        // Was URL modified?
+    public bool $wasBlocked;         // Was URL blocked?
+    public bool $wasRedirected;      // Was URL redirected?
+
+    public function hadAnyAction(): bool;  // Any action taken?
+}
+```
+
+### Provider Class
+
+```php
+readonly class Provider {
+    public function __construct(
+        public string $name,
+        public string $urlPattern,
+        public bool $completeProvider,
+        public array $rules,
+        public array $rawRules,
+        public array $referralMarketing,
+        public array $exceptions,
+        public array $redirections,
+        public bool $forceRedirection
+    );
+
+    public function matchesUrl(string $url): bool;
+    public function getRedirection(string $url): ?string;
+    public function getAllRules(bool $includeReferralMarketing): array;
+}
+```
+
+## Contributing
+
+Contributions are welcome! Areas for contribution:
+
+- Performance optimizations
+- Additional test cases
+- Documentation improvements
+- Bug fixes
+- Feature requests
+
+## Credits
+
+- **Original Project**: [ClearURLs by KevinRoebert](https://github.com/ClearURLs/Addon)
+- **Rules**: Maintained by ClearURLs community
+- **PHP Implementation**: klkvsk
+
+## License
+
+MIT License
+
+The rules data is provided by the [ClearURLs project](https://github.com/ClearURLs/Addon) and is licensed under LGPL-3.0-or-later.
+
+## Links
+
+- **GitHub**: https://github.com/klkvsk/clearurls-php
+- **Packagist**: https://packagist.org/packages/klkvsk/clearurls
+- **ClearURLs Docs**: https://docs.clearurls.xyz/
+- **Issue Tracker**: https://github.com/klkvsk/clearurls-php/issues
