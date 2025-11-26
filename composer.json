@@ -1,45 +1,45 @@
 {
-  "name": "klkvsk/clearurls",
-  "version": "1.0.20251124",
-  "description": "High-performance PHP library for removing tracking parameters from URLs using ClearURLs ruleset",
-  "type": "library",
-  "license": "MIT",
-  "keywords": [
-    "url",
-    "tracking",
-    "privacy",
-    "utm",
-    "cleaner",
-    "cleanurl",
-    "clearurl",
-    "clearurls",
-    "cleanurls"
-  ],
-  "homepage": "https://github.com/klkvsk/clearurls-php",
-  "authors": [
-    {
-      "name": "Mike Kulakovsky",
-      "homepage": "https://github.com/klkvsk"
+    "name": "klkvsk/clearurls",
+    "version": "1.0.20251126",
+    "description": "High-performance PHP library for removing tracking parameters from URLs using ClearURLs ruleset",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "url",
+        "tracking",
+        "privacy",
+        "utm",
+        "cleaner",
+        "cleanurl",
+        "clearurl",
+        "clearurls",
+        "cleanurls"
+    ],
+    "homepage": "https://github.com/klkvsk/clearurls-php",
+    "authors": [
+        {
+            "name": "Mike Kulakovsky",
+            "homepage": "https://github.com/klkvsk"
+        }
+    ],
+    "require": {
+        "php": ">=8.3"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "ClearUrls\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "ClearUrls\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "build": "php build/compile-rules.php",
+        "test": "phpunit tests/"
     }
-  ],
-  "require": {
-    "php": ">=8.3"
-  },
-  "require-dev": {
-    "phpunit/phpunit": "^11.0"
-  },
-  "autoload": {
-    "psr-4": {
-      "ClearUrls\\": "src/"
-    }
-  },
-  "autoload-dev": {
-    "psr-4": {
-      "ClearUrls\\Tests\\": "tests/"
-    }
-  },
-  "scripts": {
-    "build": "php build/compile-rules.php",
-    "test": "phpunit tests/"
-  }
 }
