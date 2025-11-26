@@ -17,6 +17,7 @@ declare(strict_types=1);
 
 const RULES_URL = 'https://rules2.clearurls.xyz/data.minify.json';
 const LOCAL_RULES_FILE = __DIR__ . '/../build/data.min.json';
+const META_FILE = __DIR__ . '/../build/data.meta.json';
 const OUTPUT_FILE = __DIR__ . '/../src/Rules.php';
 
 // Parse command line arguments
@@ -75,6 +76,14 @@ if ($useLocalOnly) {
         }
         file_put_contents(LOCAL_RULES_FILE, $rulesJson);
         echo "Local cache saved successfully\n";
+
+        // Save metadata with fetch timestamp
+        $metadata = [
+            'updatedAt' => date('Y-m-d H:i:s'),
+            'fetchedFrom' => RULES_URL,
+        ];
+        file_put_contents(META_FILE, json_encode($metadata, JSON_PRETTY_PRINT));
+        echo "Metadata saved to " . META_FILE . "\n";
     }
 }
 

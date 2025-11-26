@@ -8,9 +8,6 @@ composer.lock
 .phpunit.cache/
 coverage/
 
-# Downloaded rules (cached locally)
-build/data.min.json
-
 # IDE
 .idea/
 .vscode/

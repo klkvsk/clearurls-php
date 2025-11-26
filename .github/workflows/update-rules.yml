@@ -1,0 +1,162 @@
+name: Update ClearURLs Rules
+
+on:
+  # Manual trigger via GitHub UI
+  workflow_dispatch:
+
+permissions:
+  contents: write  # Need write permission to push commits and tags
+
+jobs:
+  update-rules:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for proper tagging
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - name: Fetch and compile rules
+        run: php build/compile-rules.php
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Run tests
+        run: vendor/bin/phpunit --no-coverage
+
+      - name: Test basic example
+        run: php examples/basic_usage.php
+
+      - name: Test advanced example
+        run: php examples/advanced_usage.php
+
+      - name: Read metadata for version
+        id: metadata
+        run: |
+          if [ -f build/data.meta.json ]; then
+            # Extract updatedAt from metadata
+            UPDATED_AT=$(php -r "echo json_decode(file_get_contents('build/data.meta.json'))->updatedAt ?? '';" || echo "")
+            if [ -n "$UPDATED_AT" ]; then
+              # Convert "YYYY-MM-DD HH:MM:SS" to "YYYYMMDD"
+              VERSION_DATE=$(echo "$UPDATED_AT" | cut -d' ' -f1 | tr -d '-')
+            else
+              # Fallback to current date if metadata is invalid
+              VERSION_DATE=$(date +%Y%m%d)
+            fi
+          else
+            # Fallback to current date if no metadata
+            VERSION_DATE=$(date +%Y%m%d)
+          fi
+
+          # Get current version from composer.json (format: "x.y.*")
+          CURRENT_VERSION=$(php -r "echo json_decode(file_get_contents('composer.json'))->version ?? '1.0.0';" || echo "1.0.0")
+          MAJOR_MINOR=$(echo "$CURRENT_VERSION" | cut -d'.' -f1-2)
+
+          # New version: x.y.YYYYMMDD
+          NEW_VERSION="${MAJOR_MINOR}.${VERSION_DATE}"
+
+          echo "version_date=$VERSION_DATE" >> $GITHUB_OUTPUT
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "📅 Version will be: $NEW_VERSION (based on rules date: $VERSION_DATE)"
+
+      - name: Check if tag already exists
+        id: check_tag
+        run: |
+          TAG="v${{ steps.metadata.outputs.new_version }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "⚠️  Tag $TAG already exists, skipping release"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "✅ Tag $TAG does not exist, will create new release"
+          fi
+
+      - name: Update composer.json version
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          NEW_VERSION="${{ steps.metadata.outputs.new_version }}"
+
+          # Update version in composer.json
+          php -r "
+          \$composer = json_decode(file_get_contents('composer.json'), true);
+          \$composer['version'] = '$NEW_VERSION';
+          file_put_contents('composer.json', json_encode(\$composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL);
+          "
+
+          echo "✅ Updated composer.json to version $NEW_VERSION"
+
+      - name: Update CHANGELOG
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          NEW_VERSION="${{ steps.metadata.outputs.new_version }}"
+          VERSION_DATE="${{ steps.metadata.outputs.version_date }}"
+          RELEASE_DATE=$(date +%Y-%m-%d)
+
+          # Format version date as YYYY-MM-DD for display
+          DISPLAY_DATE=$(echo "$VERSION_DATE" | sed 's/\(....\)\(..\)\(..\)/\1-\2-\3/')
+
+          # Create new changelog entry and insert it
+          {
+            head -n 7 CHANGELOG.md
+            echo ""
+            echo "## [$NEW_VERSION] - $RELEASE_DATE"
+            echo ""
+            echo "### Changed"
+            echo "- Updated ClearURLs rules to version from $DISPLAY_DATE"
+            echo "- Rules fetched from https://rules2.clearurls.xyz/data.minify.json"
+            echo "- Recompiled with latest tracking parameter definitions"
+            echo ""
+            tail -n +8 CHANGELOG.md
+          } > CHANGELOG.md.tmp
+
+          mv CHANGELOG.md.tmp CHANGELOG.md
+
+          echo "✅ Updated CHANGELOG.md"
+
+      - name: Commit changes
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          NEW_VERSION="${{ steps.metadata.outputs.new_version }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add build/data.meta.json src/Rules.php composer.json CHANGELOG.md
+
+          git commit -m "chore: update rules to version $NEW_VERSION" \
+            -m "" \
+            -m "- Fetched latest ClearURLs rules" \
+            -m "- Updated providers and tracking parameters" \
+            -m "- Auto-generated by GitHub Actions" \
+            -m "" \
+            -m "[skip ci]"
+
+          echo "✅ Committed changes"
+
+      - name: Create and push tag
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          NEW_VERSION="${{ steps.metadata.outputs.new_version }}"
+          TAG="v$NEW_VERSION"
+
+          git tag -a "$TAG" -m "Release $NEW_VERSION - ClearURLs rules update"
+          git push origin HEAD:${{ github.ref_name }}
+          git push origin "$TAG"
+
+          echo "✅ Created and pushed tag: $TAG"
+          echo "🎉 Release complete! Packagist will automatically pick up the new version."
+
+      - name: Tag already exists
+        if: steps.check_tag.outputs.exists == 'true'
+        run: |
+          echo "ℹ️  Tag v${{ steps.metadata.outputs.new_version }} already exists."
+          echo "ℹ️  No new release created."
+          echo "ℹ️  If you need to force a new release, increment the minor version in composer.json first."

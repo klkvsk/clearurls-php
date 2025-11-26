@@ -259,6 +259,28 @@ Use the `--local` flag to skip fetching and compile from cached rules:
 php build/compile-rules.php --local
 ```
 
+### Automated Rules Updates (GitHub Actions)
+
+The repository includes a GitHub Actions workflow that automatically:
+1. Fetches the latest ClearURLs rules
+2. Compiles them to optimized PHP code
+3. Creates a new versioned release (format: `1.0.YYYYMMDD`)
+4. Updates the CHANGELOG
+5. Pushes to GitHub and creates a git tag for Packagist
+
+**To trigger an update:**
+1. Go to the repository's "Actions" tab on GitHub
+2. Select "Update ClearURLs Rules" workflow
+3. Click "Run workflow" button
+4. The workflow will check if a release for today's rules already exists
+5. If not, it creates a new version and publishes it
+
+**Version format:** `x.y.YYYYMMDD` where:
+- `x.y` = Major.Minor version (update manually when adding code features)
+- `YYYYMMDD` = Date when rules were fetched from ClearURLs
+
+This ensures Packagist automatically picks up new rule updates without manual intervention.
+
 ## Project Structure
 
 ```

@@ -1,5 +1,6 @@
 {
   "name": "klkvsk/clearurls",
+  "version": "1.0.20251124",
   "description": "High-performance PHP library for removing tracking parameters from URLs using ClearURLs ruleset",
   "type": "library",
   "license": "MIT",
