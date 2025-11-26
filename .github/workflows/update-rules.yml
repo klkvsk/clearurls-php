@@ -3,6 +3,10 @@ name: Update ClearURLs Rules
 on:
   # Manual trigger via GitHub UI
   workflow_dispatch:
+  # Automatic trigger on push to main branch
+  push:
+    branches:
+      - main
 
 permissions:
   contents: write  # Need write permission to push commits and tags

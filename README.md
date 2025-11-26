@@ -253,6 +253,10 @@ php build/compile-rules.php
 
 This fetches rules from https://rules2.clearurls.xyz/data.minify.json and regenerates src/Rules.php.
 
+The build script compares the SHA-256 hash of fetched rules against the previous version:
+- **Rules changed**: Updates `updatedAt` timestamp in metadata → triggers new release
+- **Rules unchanged**: Preserves existing `updatedAt` timestamp → no new release
+
 Use the `--local` flag to skip fetching and compile from cached rules:
 
 ```bash
@@ -272,8 +276,9 @@ The repository includes a GitHub Actions workflow that automatically:
 1. Go to the repository's "Actions" tab on GitHub
 2. Select "Update ClearURLs Rules" workflow
 3. Click "Run workflow" button
-4. The workflow will check if a release for today's rules already exists
-5. If not, it creates a new version and publishes it
+4. The workflow fetches rules and checks if they changed (via SHA-256 hash)
+5. If rules changed AND version tag doesn't exist → creates new release
+6. If rules unchanged → keeps existing version, no duplicate release
 
 **Version format:** `x.y.YYYYMMDD` where:
 - `x.y` = Major.Minor version (update manually when adding code features)

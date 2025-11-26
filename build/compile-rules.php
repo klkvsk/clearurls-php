@@ -68,6 +68,28 @@ if ($useLocalOnly) {
     } else {
         echo "Rules fetched successfully (" . strlen($rulesJson) . " bytes)\n";
 
+        // Calculate hash of fetched rules
+        $newHash = hash('sha256', $rulesJson);
+        echo "Rules hash: " . substr($newHash, 0, 16) . "...\n";
+
+        // Load existing metadata to check if rules changed
+        $existingMetadata = null;
+        $rulesChanged = true;
+
+        if (file_exists(META_FILE)) {
+            $existingMetadata = json_decode(file_get_contents(META_FILE), true);
+            $oldHash = $existingMetadata['hash'] ?? '';
+
+            if ($oldHash === $newHash) {
+                echo "✓ Rules hash unchanged - no update needed\n";
+                $rulesChanged = false;
+            } else {
+                echo "✓ Rules hash changed - updating metadata\n";
+            }
+        } else {
+            echo "✓ No previous metadata found - creating new\n";
+        }
+
         // Save to local cache
         echo "Saving to local cache: " . LOCAL_RULES_FILE . "...\n";
         $dir = dirname(LOCAL_RULES_FILE);
@@ -77,13 +99,25 @@ if ($useLocalOnly) {
         file_put_contents(LOCAL_RULES_FILE, $rulesJson);
         echo "Local cache saved successfully\n";
 
-        // Save metadata with fetch timestamp
-        $metadata = [
-            'updatedAt' => date('Y-m-d H:i:s'),
-            'fetchedFrom' => RULES_URL,
-        ];
-        file_put_contents(META_FILE, json_encode($metadata, JSON_PRETTY_PRINT));
-        echo "Metadata saved to " . META_FILE . "\n";
+        // Save metadata - only update updatedAt if rules changed
+        if ($rulesChanged) {
+            $metadata = [
+                'updatedAt' => date('Y-m-d H:i:s'),
+                'fetchedFrom' => RULES_URL,
+                'hash' => $newHash,
+            ];
+            file_put_contents(META_FILE, json_encode($metadata, JSON_PRETTY_PRINT));
+            echo "Metadata saved to " . META_FILE . " (updatedAt updated)\n";
+        } else {
+            // Keep existing updatedAt but update hash and fetchedFrom
+            $metadata = [
+                'updatedAt' => $existingMetadata['updatedAt'] ?? date('Y-m-d H:i:s'),
+                'fetchedFrom' => RULES_URL,
+                'hash' => $newHash,
+            ];
+            file_put_contents(META_FILE, json_encode($metadata, JSON_PRETTY_PRINT));
+            echo "Metadata saved to " . META_FILE . " (updatedAt preserved)\n";
+        }
     }
 }
 
